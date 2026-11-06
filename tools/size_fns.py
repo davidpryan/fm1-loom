@@ -38,20 +38,24 @@ from pathlib import Path
 SRC = Path(__file__).resolve().parents[1]
 SIZE_FILES = ["app/ui.c", "app/pages.c", "app/project.c", "app/lz.c", "app/samples.c", "app/gfx_loom.c", "app/app.c",
               "app/plat_loom.c", "base/device/panel.c", "base/device/main_fm1.c", "base/device/gfx.c",
-              "base/device/storage.c", "base/bsp/chip/ota.c", "base/device/announce.c", "base/device/backup.c"]
+              "base/device/storage.c", "base/bsp/chip/ota.c", "base/device/announce.c", "base/device/backup.c",
+              "base/device/res.c", "base/device/crashlog.c", "base/device/dbgstats.c", "base/device/mirror.c",
+              "base/device/plat_fm1.c"]
 COLD = {
     "dsp/drumline.c": ["start", "knob", "drumline_filter", "drumline_hit", "reso_set", "drumline_init"],
     "dsp/fx.c": ["fx_derive", "eq_coefs", "fx_filter", "master_set", "master_init", "comp_coefs",
                  "fx_set", "fx_init"],
     "dsp/sample.c": ["smp_user_scan", "fact_init"],
-    "dsp/digisophie.c": [],
+    "dsp/digisophie.c": ["ds_voice_init", "ds_voice_gate"],
     "dsp/d909.c": ["d909_start", "d9_biquad_set", "d9_shape_prep", "d9_env_exp"],
     "dsp/bass303.c": ["bass303_init", "rat_coeffs", "bq_low_shelf", "bq_lowpass"],
     "dsp/bench.c": [],
     "dsp/synth.c": ["tp_text_i", "tp_text_par", "tp_info_par", "tp_text", "char_picture",
                     "synth_note_off", "synth_duck_trigger", "synth_all_off",
                     "sound_default", "synth_init", "eknob_init", "voice_chunk", "voice_subblock", "synth_prepare"],
-    "seq/pattern.c": [],
+    "seq/pattern.c": ["pattern_init", "patterns_init", "lane_alloc", "lane_clear", "lane_count", "lane_pool_set",
+                      "lane_pool_free", "step_clear_locks", "pattern_clear_locks", "step_set_notes", "step_toggle_note",
+                      "kit_set", "kit_toggle", "kit_add", "cond_ab", "notes_cross", "weave_step", "pattern_woven"],
     "seq/seq.c": ["fire_notes", "key_in", "seq_init", "bar_end", "do_start", "emit_drum", "rec_key_off",
                   "rec_key_on", "restart", "track_reset", "seq_rec_pos", "deg_to_note", "seq_cue_pattern",
                   "arp_stop", "keys_all_off"],
