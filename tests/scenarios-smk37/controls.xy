@@ -1,0 +1,32 @@
+# the SMK-37's faders and wheels (smk37.c): a fader is a track's level once it moves (FADER BANK held: tracks 5-8),
+# the mod wheel CC 1 on the track shown, the pitch wheel its bend; a fader that has not moved changes nothing
+wait 300
+turn ALGO 1
+wait 30
+expect trk 2
+fader 0 64
+wait 60
+expect par1.LEVEL 64
+fader 1 127
+wait 60
+expect par2.LEVEL 127
+press FBANK
+wait 30
+fader 0 0
+wait 60
+expect par5.LEVEL 0
+release FBANK
+wait 30
+expect par1.LEVEL 64
+wheel mod 100
+wait 60
+wheel pitch 4000
+wait 60
+key37 12 down 90
+wait 60
+expect voices 1
+wheel pitch 0
+wait 60
+key37 12 up
+wait 150
+shot controls.png

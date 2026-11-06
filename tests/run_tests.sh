@@ -36,6 +36,10 @@ run sample-bank sh -c "'$PY' tools/loom_samples.py build build/gen/user_bank.bin
     'sweep two=build/gen/wav/sweep.wav:57' && '$PY' tools/loom_samples.py syx build/gen/user_bank.syx \
     'piano two=build/gen/wav/piano.wav:60%16k' 'sweep two=build/gen/wav/sweep.wav:57'"
 run bank-tool "$PY" tests/host/bank_test.py
+# LOOM-8's flash map on the SMK-37 (app.h, dsp/sample.h: the pool, the resource region, the pairs, the bank's windows)
+# against the board's protected sectors (felucca-bsp boards/smk37/fm1_flash.h)
+run smk37-flash sh -c "$CC -std=c99 -w -DPLAT_SMK37=1 -Ibase/bsp/boards/smk37 -Ibase/include -Iapp \
+    -o $OUT/smk37_flash_test tests/host/smk37_flash_test.c && $OUT/smk37_flash_test"
 # the units' own tests, written beside them (their WAVs in build/host/)
 for t in synth braids drumline fx seq factory; do
     run "$t" sh "tests/host/${t}_test.sh"
@@ -76,6 +80,14 @@ if command -v emcc >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then   # 
 else
     echo "  skip emu (no emcc or node)"
 fi
+# the SMK-37 (docs/SMK37.md): its simulator (BOARD=smk37 ./build.sh --host) and its own scenarios (the pads, the keybed,
+# < >, the faders and wheels, its store), with the SMK's script words (base/host/plat_host.c: key37, pad, fader ...)
+run host-build-smk37 env BOARD=smk37 sh build.sh --host
+for s in tests/scenarios-smk37/*.xy; do
+    n=$(basename "$s" .xy)
+    rm -rf "$B/scenarios/smk37-$n" && mkdir -p "$B/scenarios/smk37-$n"
+    run "smk37-$n" $B/host/loom-smk37_host "$s" "$B/scenarios/smk37-$n"
+done
 for s in tests/scenarios/*.xy; do
     n=$(basename "$s" .xy)
     rm -rf "$B/scenarios/$n" && mkdir -p "$B/scenarios/$n"

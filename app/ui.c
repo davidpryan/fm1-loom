@@ -20,6 +20,16 @@ static void step_rec_start(void);
 static void sp_msg(const char *a, const char *b, uint32_t flags);
 static uint8_t sp_said;
 static uint32_t sp_in_t;
+static int key_vel = 127;                        /* the velocity of the key going down: the SMK-37's keys and pads
+                                                  * (smk37.c); the FM-1's keys have none, 127 */
+#if PLAT_SMK37                                   /* the SMK-37's controls (smk37.c, included after this file) */
+static int key_src;                              /* the key going down: 0 the keybed, 1 a pad */
+static uint32_t smk_keys_now(void);
+static void smk_key_edges(uint32_t btn, uint32_t keys);
+static void smk_controls(void);
+static void smk_button_up(int b);
+static void smk_pad_lights(uint32_t lit, uint32_t mid, uint32_t dim, int trk);
+#endif
 
 static void say_as(const char *a, const char *b, uint32_t flags)
 {
@@ -1348,7 +1358,7 @@ static void keyboard_down(int k)
         int note = is_drum(trk) ? key_sound(k) : key_note(k);
         ui.kmode[k] = KM_PLAY;
         ui.knote[k] = (uint8_t)note;
-        engine_key(trk, note, 1, 127);
+        engine_key(trk, note, 1, key_vel);
         chord_add(note);
         if (is_drum(trk)) {                      /* a drum key: its sound is the one shown (Steps with SEQ held; a
                                                   * black key on the sound pages picks the key the knobs edit) */
@@ -1360,8 +1370,13 @@ static void keyboard_down(int k)
         } else if (!is_aux(sel_trk())) {
             chord_remember(note);
         }
-        if (srec && !is_aux(sel_trk()))
+        if (srec && !is_aux(sel_trk())) {
             step_rec_key(note);
+#if PLAT_SMK37
+            if (ui.srec_down == 1 && key_vel)      /* (the chord's first key: its velocity is the step's, as MIDI's) */
+                tpat(trk)->st[ui.cursor].vel = (uint8_t)key_vel;
+#endif
+        }
     }
 }
 /* the Bar page, SEQ held: black keys 1-4 are the bars. One jumps there at the next bar line (and plays on through the
@@ -1430,6 +1445,13 @@ static void key_down(int k)
         ui.knote[k] = (uint8_t)(w < 0 ? 255 : w);
         return;
     }
+#if PLAT_SMK37
+    if (w >= 0 && !key_src && !home_held() && p != P_THROWS) {   /* the keybed's white keys play: the pads have
+                                                                 * the white keys' jobs (smk37.c) */
+        keyboard_down(k);
+        return;
+    }
+#endif
     if (lst.open) {                              /* (the keys play under a list: a preset auditioned as it is picked) */
         keyboard_down(k);
         return;
@@ -1548,7 +1570,7 @@ static void key_down(int k)
             int note = key_note(k);
             ui.kmode[k] = KM_STEPCHORD;
             ui.knote[k] = (uint8_t)note;
-            engine_key(trk, note, 1, 127);
+            engine_key(trk, note, 1, key_vel);
             if (ui.chord_pool)
                 pool_toggle(trk, ui.chord_pat % NPATT, note % 12);
             else
@@ -1857,6 +1879,12 @@ static void button_down(int b)
 }
 static void button_up(int b)
 {
+#if PLAT_SMK37
+    if (b >= B_KBANK) {                          /* KNOB BANK, FADER BANK, <, > (smk37.c) */
+        smk_button_up(b);
+        return;
+    }
+#endif
     if (lst.open && b == PAGE_BTN[page_group(ui.page)].btn && b != B_HOME) {
         ui.ask = 0;
         lst.open = 0;
@@ -1913,7 +1941,8 @@ static void button_up(int b)
             step_nudge(d);
             break;
         }
-        if (ui.rec_armed && !playing() && is_seqt(sel_trk())) {   /* OCT+ a rest, OCT- back a step */
+        if (!PLAT_SMK37 && ui.rec_armed && !playing() && is_seqt(sel_trk())) {   /* OCT+ a rest, OCT- back a step
+                                                                                 * (the SMK-37: < and >, smk37.c) */
             step_rec_move(d);
             num_s((uint32_t)ui.cursor + 1u, t);
             say(d > 0 ? "REST" : "BACK", t);
@@ -1923,12 +1952,13 @@ static void button_up(int b)
             pattern_octave(sel_trk(), d);           /* SEQ held: the pattern's notes an octave down or up */
             break;
         }
-        if ((ui.page == P_ARRANGE || ui.page == P_SONG) && !home_held()) {   /* the white keys' scenes: 1-16, 17-32 */
+        if (!PLAT_SMK37 && (ui.page == P_ARRANGE || ui.page == P_SONG) && !home_held()) {   /* the white keys' scenes: 1-16,
+                                                                                           * 17-32 (the SMK-37: < and >) */
             ui.scene_pg = (uint8_t)(d > 0);
             say("SCENES", ui.scene_pg ? "17 to 32" : "1 to 16");
             break;
         }
-        if ((steps_page(ui.page) && !(ui.btn >> B_SEQ & 1u)) || (ui.page == P_WEAVE && wv_from(sel_trk()))) {
+        if (!PLAT_SMK37 && ((steps_page(ui.page) && !(ui.btn >> B_SEQ & 1u)) || (ui.page == P_WEAVE && wv_from(sel_trk())))) {
             ui.bar = (uint8_t)clampi(ui.bar + d, 0, NBAR - 1);   /* (SEQ held: the keyboard's octave, below; Weave:
                                                                   * the bar its rows show) */
             num_s((uint32_t)ui.bar + 1u, t);
@@ -3809,7 +3839,11 @@ static void save_key(int k)
 }
 static void input(void)
 {
+#if PLAT_SMK37
+    uint32_t btn = plat_buttons(), keys = smk_keys_now(), ch, i;   /* (the keybed's middle 27 and the pads) */
+#else
     uint32_t btn = plat_buttons(), keys = plat_keys(), ch, i;
+#endif
     int32_t e, ev[NE];
     ch = btn ^ ui.btn;
     ui.btn = btn;
@@ -3901,6 +3935,10 @@ static void input(void)
         ui.btn_used |= 1u << B_OCTDN | 1u << B_OCTUP;
     holds();
     ch = keys ^ ui.keys;
+#if PLAT_SMK37
+    smk_key_edges(btn, keys);                     /* the pads, the keybed (velocity, the outer keys, the pedal) */
+    smk_controls();                               /* the faders and the wheels */
+#else
     ui.keys = keys;
     for (i = 0; i < NKEYS; i++)
         if (ch >> i & 1u) {
@@ -3916,6 +3954,7 @@ static void input(void)
                     key_up((int)i);
             }
         }
+#endif
     for (i = 0; i < NE; i++)
         if ((ev[i] = plat_enc((int)i)) != 0) {
             sp_in_t = plat_ms();
@@ -4052,6 +4091,9 @@ static void leds(void)
             }
         }
     }
+#if PLAT_SMK37
+    smk_pad_lights(k, mid, dim, trk);             /* (the SMK-37 has no key LEDs: the pads show the white keys') */
+#endif
     loom_lights(b, k, proj.lights == 1, (dim | mid) & ~k, rec);
     plat_lights_mid(0, mid & ~k);
 }

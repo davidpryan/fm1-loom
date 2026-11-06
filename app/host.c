@@ -495,6 +495,10 @@ int app_expect(const char *what, int *got)
         *got = (int)(seq_tempo(&seq) + 0.5f);
     else if (!strcmp(what, "trk"))
         *got = proj.trk_sel + 1;
+    else if (!strcmp(what, "bar"))                  /* the bar shown, from 1 */
+        *got = ui.bar + 1;
+    else if (!strcmp(what, "oct"))                  /* the keys' octave, -4..4 */
+        *got = ui.oct;
     else if (!strncmp(what, "name", 4) && what[4])  /* nameT: track T's name, its first letter's code */
         *got = (uint8_t)proj.trk[(atoi(what + 4) - 1 + NALLTRK) % NALLTRK].name[0];
     else if (!strcmp(what, "user"))                 /* the user bank: its samples, its data's bytes, user N's rate */

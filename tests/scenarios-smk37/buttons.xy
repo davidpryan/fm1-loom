@@ -1,0 +1,44 @@
+# the SMK-37's < and > (smk37.c): the bar shown on Steps, the scenes' half on Arrange, the page elsewhere;
+# OCTAVE- / OCTAVE+ the keys' octave on every page; FADER BANK held alone shows its card without harm
+wait 300
+turn ALGO 1
+wait 30
+expect page Steps
+tap RIGHT
+wait 30
+expect bar 2
+tap RIGHT
+wait 30
+expect bar 3
+tap LEFT
+wait 30
+expect bar 2
+tap OCT+
+wait 30
+expect oct 1
+expect bar 2
+tap OCT-
+wait 30
+expect oct 0
+tap HOME
+wait 30
+expect page Arrange
+listen
+tap RIGHT
+wait 30
+said SCENES
+tap LEFT
+wait 30
+tap EDIT
+wait 30
+tap RIGHT
+wait 30
+press FBANK
+wait 1200
+release FBANK
+wait 30
+press KBANK
+wait 1200
+release KBANK
+wait 30
+shot buttons.png

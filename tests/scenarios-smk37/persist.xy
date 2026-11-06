@@ -1,0 +1,29 @@
+# the SMK-37's store (app.h: the pool at 0xC2000, the pairs at 0xE6000 / 0xE8000, OBJ_BLE in the settings pair):
+# a project saved, the FM-1 restarted, the project back; the resource region (the 909 cymbals) read in place
+wait 300
+tap HOME
+expect page Arrange
+spin K1 20
+wait 40
+expect tempo 140
+tap SAVE
+wait 150
+expect dirty 0
+reboot
+wait 300
+expect tempo 140
+turn ALGO 1
+wait 30
+tap SEQ
+wait 30
+pad 0 down 100
+wait 30
+pad 0 up
+wait 60
+expect note 2 1 1 60
+tap SAVE
+wait 150
+reboot
+wait 300
+expect note 2 1 1 60
+shot persist.png

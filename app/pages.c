@@ -147,7 +147,11 @@ static int page_group(int p)
 }
 static int group_n(int g);                           /* the pages a button has now (the track decides) */
 static const char *const BTN_LABEL[NB] = {"FX", "SEL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ",
-                                          "PLAY", "REC", "OCT-", "OCT+"};
+                                          "PLAY", "REC", "OCT-", "OCT+"
+#if PLAT_SMK37
+                                          , "KBANK", "FBANK", "<", ">"
+#endif
+};
 
 /* the tracks: 1-8, then the aux tracks (the tag's short names, the pages' long ones) */
 static const char *const TRACK_NAME[NALLTRK] = {"T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "COND", "THROW",
@@ -2561,10 +2565,21 @@ static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; 
      "Playing: hold it and play. Held, the knobs set click, count-in, mode."},
     {B_PLAY, PG(P_SONG), "Play", "Plays the song from the slot picked. PLAY again stops.", "SEL's PLAY SONG: from the top."},
     {B_PLAY, PG_ANY, "Play", "Starts and stops. Twice quickly: from the top.", "HOME + PLAY redoes."},
+#if PLAT_SMK37                                   /* (the SMK-37: < and > have the bars and the scenes, smk37.c) */
+    {B_OCTDN, PG_STEPS, "Octave", "The keys an octave down. A step held: nudges it earlier.", 0},
+    {B_OCTUP, PG_STEPS, "Octave", "The keys an octave up. A step held: nudges it later.", 0},
+    {B_LEFT, PG_STEPS, "Bar", "Shows the bar before.", "Step record: the cursor back."},
+    {B_RIGHT, PG_STEPS, "Bar", "Shows the next bar.", "Step record: the cursor on."},
+    {B_LEFT, PG_ANY, "Before", "Arrange, Song: scenes 1 to 16 on the pads.", "Elsewhere: the page before."},
+    {B_RIGHT, PG_ANY, "Next", "Arrange, Song: scenes 17 to 32 on the pads.", "Elsewhere: the next page."},
+    {B_KBANK, PG_ANY, "Knobs", "K1 to K4 are the page's knobs, K5 the master,", "K6 SELECT, K7 ALGORITHM, K8 PRESETS."},
+    {B_FBANK, PG_ANY, "Faders", "The faders are the levels of tracks 1 to 4;", "held, tracks 5 to 8. A fader counts once it moves."},
+#else
     {B_OCTDN, PG_STEPS, "Bar", "Shows the bar before. A step held: nudges it earlier.",
      "Step record: the cursor back."},
     {B_OCTUP, PG_STEPS, "Bar", "Shows the next bar. A step held: nudges it later.",
      "Step record: the cursor on."},
+#endif
     {B_OCTDN, PG_ANY, "Octave", "The keys an octave down.", 0},
     {B_OCTUP, PG_ANY, "Octave", "The keys an octave up.", 0},
 };

@@ -51,6 +51,7 @@ void engine_set(int trk, int param, int val);            /* a knob: the engine's
 void engine_set_all(int trk);                            /* every parameter of a track (load, preset) */
 void engine_key(int trk, int note, int on, int vel);     /* a key through the sequencer's player and brain */
 void engine_keys_off(int trk);
+void engine_bend(int trk, int cents);                   /* the track's bend, cents (-2000..2000): the SMK-37's wheel */
 void engine_punch(int fx, int on, int target_trk);
 void engine_brain_key(int note, int on);
 void engine_master(int p, int val);

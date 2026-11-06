@@ -237,7 +237,7 @@ static void guard_apply(void)
 /* uint32 commands, single producer (main loop) / single consumer (audio ISR): type:4 | a:8 | b:8 | c:12 (C_PARAM: b
  * the parameter's low eight bits, c its value and, at bit 8, its ninth: synth.h NTP) */
 enum { C_PARAM, C_ALL, C_KEY, C_KEYS_OFF, C_PUNCH, C_BRAIN_KEY, C_MASTER, C_FX, C_PANIC,
-       C_METRO, C_TEMPO, C_GROOVE, C_SCENE, C_NOP };     /* at most sixteen: the type is four bits */
+       C_METRO, C_TEMPO, C_GROOVE, C_SCENE, C_BEND, C_NOP };     /* at most sixteen: the type is four bits */
 #define CQ 512u
 static uint32_t cq[CQ];
 static volatile uint32_t cq_w, cq_r;
@@ -284,6 +284,12 @@ void engine_key(int trk, int note, int on, int vel)
     cq_put(C_KEY, (uint32_t)trk, (uint32_t)note, (uint32_t)((on ? 0x80u : 0u) | ((uint32_t)vel & 0x7Fu)));
 }
 void engine_keys_off(int trk) { cq_put(C_KEYS_OFF, (uint32_t)trk, 0, 0); }
+#if PLAT_SMK37
+void engine_bend(int trk, int cents)             /* a bend from the panel (the SMK-37's pitch wheel): as MIDI's */
+{
+    cq_put(C_BEND, (uint32_t)trk, 0, (uint32_t)(clamp(cents, -2000, 2000) + 2048));
+}
+#endif
 void engine_punch(int fx, int on, int target_trk)
 {
     cq_put(C_PUNCH, (uint32_t)fx, (uint32_t)(on != 0), (uint32_t)(target_trk < 0 ? 0xFF : target_trk));
@@ -970,6 +976,9 @@ static void drain(void)
         case C_ALL: apply_all((int)a); break;
         case C_KEY: seq_key(&seq, (int)a, (int)b, (int)((v >> 7) & 1u), (int)(v & 0x7Fu)); break;
         case C_KEYS_OFF: seq_key_all_off(&seq, (int)a); break;
+#if PLAT_SMK37
+        case C_BEND: s_bend(0, (int)a, (int)v - 2048); break;
+#endif
         case C_PUNCH: seq_punch_key(&seq, (int)a, (int)b, v == 0xFFu ? -1 : (int)v); break;
         case C_BRAIN_KEY: seq_brain_key(&seq, (int)a, (int)b); break;
         case C_MASTER: master_set(MST, (int)a, (int)v); break;
