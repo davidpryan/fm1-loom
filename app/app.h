@@ -29,12 +29,48 @@
  * 0xFC000.. Felucca's settings pair (neither LOOM-8's). LOOM-8 was never released, so this map did not have to
  * keep its own platform's (four slots); it does, but for the fourth slot: the same numbers at the same places, so
  * what a development build saved in slots 1 to 3 and the presets carry over (the sample bank moved: upload it
- * again) */
+ * again).
+ *
+ * The SMK-37 (PLAT_SMK37: fm1-base board = "smk37", felucca-bsp boards/smk37/fm1_flash.h) has the same 1 MiB part,
+ * laid out by its stock firmware: sectors fm1-base never writes (the boot head, BTIF and USRTRIM at 0xC0000..0xC1FFF,
+ * USR at 0xF4000..0xFDFFF, key_mac at 0xFF000) and two inside its windows that an app must leave alone, the autosave
+ * pair 0xA1000..0xA2FFF and the store's owner tag at 0xAF000. Its windows are the data area 0xC2000..0xE9FFF (40
+ * sectors, 33 fewer than the FM-1's 73), PLAT_XDATA0 0x9D000..0xA0FFF (16 KB) and PLAT_XDATA1 0xA1000..0xBAFFF
+ * (104 KB, the autosave pair and the owner tag inside it). LOOM-8's map there (docs/SMK37.md; checked against the
+ * board's protected ranges by tests/host/smk37_flash_test.c):
+ *   0xC2000..0xCFFFF  the projects' pool, 14 sectors (the FM-1's 20: three projects of 7.6 KB packed always fit
+ *                     here, where the FM-1 fits three of 15 KB; past that, MEMORY FULL)
+ *   0xD0000..0xE5FFF  the resource region, 22 sectors (as on the FM-1: the 909 cymbals and the large type)
+ *   0xE6000, 0xE8000  the panel calibration and the user presets (a pair each)
+ *   0xEB000           OBJ_BLE, in the SMK's settings pair (PLAT_GLOB; the FM-1's is 0xFC000)
+ *   the user sample bank, in the two extra windows only: 0xA3000..0xAEFFF (48 KB, above the autosave pair, below the
+ *                     owner tag), 0xB0000..0xBAFFF (44 KB, above the owner tag) and 0x9D000..0xA0FFF (16 KB): 108 KB,
+ *                     half the FM-1's (dsp/sample.h). The factory set (86 KB) fits, with about 20 KB left to the player
+ * Nothing in LOOM-8's data lies at the same offsets on both boards: what one board saved does not carry over to the
+ * other (the backup page does that). The SMK's store owner tag names LOOM-8 (APP_DATA_FAMILY): fm1-base clears every
+ * window at the first boot after another firmware (and that firmware clears LOOM-8's), so no firmware parses another's */
 #define NPROJ 3                         /* project slots in flash */
 #define PROJ_NOSLOT 0xFFu                /* proj_slot of a new project when every slot is taken: SAVE TO gives it one */
 #define PROJ_NOBJ 7
 enum { OBJ_PANEL, OBJ_PRESETS, OBJ_PROJ0, OBJ_BLE = OBJ_PROJ0 + NPROJ * PROJ_NOBJ, OBJ_NOBJ };
 #define OBJ_PROJ(slot, k) (OBJ_PROJ0 + (slot) * PROJ_NOBJ + (k))
+#if PLAT_SMK37
+#define APP_STORE_MAP {0xE6000u, 0xE8000u, \
+    0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, \
+    0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, \
+    0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, 0xC2000u, \
+    PLAT_GLOB}                         /* the 21 projects' objects are pooled (their entries are not used: the pool's
+                                        * base stands in); OBJ_BLE in the SMK's settings pair */
+#define APP_STORE_POOL
+#define APP_STORE_POOL_BASE 0xC2000u
+#define APP_STORE_POOL_N 14u
+#define APP_STORE_POOL_OLD 14u          /* (no A/B pairs ever on this board: nothing to move at the first boot) */
+#define APP_STORE_POOL_OBJ0 OBJ_PROJ0
+#define APP_STORE_POOL_OBJN (NPROJ * PROJ_NOBJ)
+#define APP_RES_BASE 0xD0000u
+#define APP_RES_SECTORS 22u
+#define APP_DATA_FAMILY "LOOM8"         /* the SMK's store owner (fm1-base plat_smk37.c): "SMK37DATA" + this */
+#else
 #define APP_STORE_MAP {0xDC000u, 0xDE000u, \
     0x97000u, 0x99000u, 0x9B000u, 0x9D000u, 0x9F000u, 0xA1000u, 0xA3000u, \
     0xA5000u, 0xA7000u, 0xA9000u, 0xAB000u, 0xAD000u, 0xAF000u, 0xB1000u, \
@@ -57,6 +93,7 @@ enum { OBJ_PANEL, OBJ_PRESETS, OBJ_PROJ0, OBJ_BLE = OBJ_PROJ0 + NPROJ * PROJ_NOB
  * the sectors the pool freed */
 #define APP_RES_BASE 0xAB000u
 #define APP_RES_SECTORS 22u
+#endif
 #define APP_STORE_POOL_EMPTY(obj, p, n) \
     ((n) == 4u && ((obj) - OBJ_PROJ0) % PROJ_NOBJ >= 2u && (p)[0] == 2u && !(p)[1] && !(p)[2] && !(p)[3])
 

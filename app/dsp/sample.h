@@ -39,13 +39,26 @@
 #define SMP_NENT (SMP_NUSER + SMP_NFENT)  /* the bank's entries: the user slots and the factory set's */
 #define SMP_NAME 12
 #define SMP_NREG 3                        /* the bank's windows, in the order it fills them */
+#if PLAT_SMK37                            /* the SMK-37 (app.h): the two extra windows only, around the sectors the
+                                           * board keeps (the autosave pair 0xA1000..0xA2FFF, the owner tag 0xAF000) */
+#define SMP_REG0 0xA3000u                 /* PLAT_XDATA1 above the autosave pair, up to the owner tag: 48 KB */
+#define SMP_REG0_SIZE 0xC000u
+#define SMP_REG1 0xB0000u                 /* PLAT_XDATA1 above the owner tag: 44 KB */
+#define SMP_REG1_SIZE 0xB000u
+#define SMP_REG2 0x9D000u                 /* PLAT_XDATA0: 16 KB */
+#define SMP_REG2_SIZE 0x4000u
+#define SMP_XDATA_FIRST 0                 /* every window is an extra window: no sector may hold an update record's
+                                           * mark (samples.c, tools/sampleio.py XDATA) */
+#else
 #define SMP_REG0 0xC1000u                 /* the data area after the projects, up to the calibration: 108 KB */
 #define SMP_REG0_SIZE 0x1B000u
 #define SMP_REG1 0xE5000u                 /* PLAT_XDATA1: 92 KB */
 #define SMP_REG1_SIZE 0x17000u
 #define SMP_REG2 0x93000u                 /* PLAT_XDATA0: 16 KB */
 #define SMP_REG2_SIZE 0x4000u
-#define SMP_BANK_SIZE (SMP_REG0_SIZE + SMP_REG1_SIZE + SMP_REG2_SIZE)   /* 216 KB */
+#define SMP_XDATA_FIRST 1                 /* the windows from this one are the extra windows (the mark rule) */
+#endif
+#define SMP_BANK_SIZE (SMP_REG0_SIZE + SMP_REG1_SIZE + SMP_REG2_SIZE)   /* 216 KB (the SMK-37: 108 KB) */
 #define SMP_BANK_BASE SMP_REG0            /* flash offset of the bank's header */
 #define SMP_BANK_HDR 2048u                /* the header; the data follows */
 #define SMP_BANK_MAGIC 0x504D534Cu        /* "LSMP" */

@@ -53,6 +53,7 @@ CRC before it commits), ERASE 14, INFO 15. Needs mido and a backend (pip install
 device commands.
 """
 import struct
+import os
 import sys
 import time
 import zlib
@@ -481,9 +482,11 @@ def args_of(argv):
     elif argv[:1] and argv[0].startswith("--rate="):
         rate = rate_of(argv[0].split("=", 1)[1])
         argv = argv[1:]
-    while argv[:1] and argv[0] in ("--no-factory", "--all", "--make-room"):
+    while argv[:1] and (argv[0] in ("--no-factory", "--all", "--make-room") or argv[0].startswith("--board=")):
         if argv[0] == "--make-room":
             ROOM = True
+        elif argv[0].startswith("--board="):        # the bank's windows: the FM-1's (default) or the SMK-37's
+            sio.set_board(argv[0].split("=", 1)[1])
         else:
             factory = False
         argv = argv[1:]
@@ -495,6 +498,8 @@ def main():
                                                  "extract", "factory"):
         sys.exit(__doc__)
     cmd = sys.argv[1]
+    if os.environ.get("LOOM_BOARD"):                # the SMK-37's bank (--board=smk37 does the same)
+        sio.set_board(os.environ["LOOM_BOARD"])
     try:
         rate, factory, rest = args_of(sys.argv[2:])
         if cmd in ("build", "syx"):

@@ -66,6 +66,7 @@ const LOOM_SAMPLES = {
   tag: "LSMP",
   what: "the samples",
   async backup(link, onProgress = () => {}) {
+    setBoard(boardOfName((link.input || {}).name));   // (the bank's windows: the FM-1's or the SMK-37's, by the port's name)
     const info = await sbReq(link, 15, [0]);
     if (info[0] !== 2) throw new Error("This LOOM-8 is too old to back up its samples. Update it from the Install page.");
     if (!info[5]) { onProgress(1); return emptyBank(); }
@@ -84,6 +85,7 @@ const LOOM_SAMPLES = {
     return b.count ? `${b.count} sample${b.count === 1 ? "" : "s"} (${Math.round(b.used / 1024)} KB)` : "no samples";
   },
   async restore(link, data, onProgress = () => {}) {
+    setBoard(boardOfName((link.input || {}).name));
     const b = bankOf(data);
     if (!b.count) {
       const r = await sbReq(link, 14, [0], 60000);

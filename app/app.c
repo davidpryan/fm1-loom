@@ -12,6 +12,9 @@
 #include "ui.c"
 #include "midicc.c"
 #include "samples.c"
+#if PLAT_SMK37
+#include "smk37.c"                                  /* the SMK-37's pads, keybed, faders, wheels and pedal */
+#endif
 #ifndef PLAT_HOST
 #include "plat_loom.c"
 #else
@@ -25,11 +28,21 @@ static int load_force = -1;             /* the script's "load N": the guard sees
 #endif
 
 _Static_assert(OBJ_NOBJ == 24 && OBJ_PROJ0 == 2, "the store map lists every object (APP_STORE_MAP)");
+#if PLAT_SMK37
+_Static_assert(SMP_REG0 == PLAT_XDATA1_LO + 0x2000u && SMP_REG0 + SMP_REG0_SIZE == 0xAF000u &&
+               SMP_REG1 == 0xB0000u && SMP_REG1 + SMP_REG1_SIZE == PLAT_XDATA1_HI &&
+               SMP_REG2 == PLAT_XDATA0_LO && SMP_REG2 + SMP_REG2_SIZE == PLAT_XDATA0_HI,
+               "the SMK-37's sample bank: PLAT_XDATA1 around the autosave pair and the owner tag, and PLAT_XDATA0 whole");
+_Static_assert(APP_STORE_POOL_BASE + APP_STORE_POOL_N * 0x1000u <= APP_RES_BASE &&
+               APP_RES_BASE + APP_RES_SECTORS * 0x1000u <= 0xE6000u && PLAT_DATA_HI == 0xEA000u,
+               "the SMK-37's data area: the pool, the resource region, then the calibration and the presets");
+#else
 _Static_assert(SMP_REG0 >= 0xC1000u && SMP_REG0 + SMP_REG0_SIZE <= 0xDC000u && SMP_REG0 >= PLAT_DATA_LO,
                "the user sample bank's first window between the project slots and the panel calibration");
 _Static_assert(SMP_REG1 == PLAT_XDATA1_LO && SMP_REG1 + SMP_REG1_SIZE == PLAT_XDATA1_HI &&
                SMP_REG2 == PLAT_XDATA0_LO && SMP_REG2 + SMP_REG2_SIZE == PLAT_XDATA0_HI,
                "the user sample bank's other windows: fm1-base's two extra windows, whole (plat.h)");
+#endif
 _Static_assert(SMP_HDR_USED <= SMP_BANK_HDR, "the bank's entries fit its header");
 
 /* no store object (the calibration, the presets, the projects: APP_STORE_MAP, two sectors each) in a window of the

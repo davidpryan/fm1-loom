@@ -33,15 +33,43 @@ RATES = (11025, 16000, 22050, 32000)   # what the tool offers (dsp/sample.h: 400
 RATE_MIN, RATE_MAX = 4000, 48000
 BLK = 128                       # samples a checkpoint: a bank's since version 3 (0.8); 64 in version 2
 BLK_V2 = 64
-# the bank's windows (dsp/sample.h SMP_REG*), in the order it fills them: flash offset, size
-REGIONS = [(0xC1000, 0x1B000),  # the data area after the projects, up to the calibration (108 KB)
-           (0xE5000, 0x17000),  # fm1-base's PLAT_XDATA1 (92 KB)
-           (0x93000, 0x4000)]   # fm1-base's PLAT_XDATA0 (16 KB)
-XDATA = (1, 2)                  # the windows where no sector may carry an update record's mark
+# the bank's windows (dsp/sample.h SMP_REG*), in the order it fills them: flash offset, size; and the windows
+# where no sector may carry an update record's mark (the extra windows). Per board (set_board): the FM-1's 216 KB,
+# the SMK-37's 108 KB in its two extra windows around the sectors the board keeps (app.h, docs/SMK37.md)
+BOARDS = {
+    "fm1": ([(0xC1000, 0x1B000),    # the data area after the projects, up to the calibration (108 KB)
+             (0xE5000, 0x17000),    # fm1-base's PLAT_XDATA1 (92 KB)
+             (0x93000, 0x4000)],    # fm1-base's PLAT_XDATA0 (16 KB)
+            (1, 2)),
+    "smk37": ([(0xA3000, 0xC000),   # PLAT_XDATA1 above the autosave pair, up to the owner tag (48 KB)
+               (0xB0000, 0xB000),   # PLAT_XDATA1 above the owner tag (44 KB)
+               (0x9D000, 0x4000)],  # PLAT_XDATA0 (16 KB)
+              (0, 1, 2)),
+}
+BOARD = "fm1"
+REGIONS, XDATA = BOARDS[BOARD]
 REC_MARK = 0xF06                # "AT" there, in a sector: an update record (base/bsp/loader/ldr_core.c)
 BANK_SIZE = sum(n for _, n in REGIONS)
 BANK_HDR = 2048
 BANK_MAX_DATA = BANK_SIZE - BANK_HDR
+
+
+def set_board(board):
+    """the bank's windows of this board ("fm1", "smk37"): REGIONS, XDATA, BANK_SIZE and BANK_MAX_DATA follow (read
+    them from the module, not as copies). LOOM_BOARD in the environment picks it for the tools"""
+    global BOARD, REGIONS, XDATA, BANK_SIZE, BANK_MAX_DATA
+    if board not in BOARDS:
+        raise ValueError(f"no board {board!r}: " + ", ".join(BOARDS))
+    BOARD = board
+    REGIONS, XDATA = BOARDS[board]
+    BANK_SIZE = sum(n for _, n in REGIONS)
+    BANK_MAX_DATA = BANK_SIZE - BANK_HDR
+
+
+def board_of_name(name):
+    """the board behind a MIDI port's name: an SMK-37 build's USB product string ends in "SMK-37" (fm1-base
+    tools/build.py), the MKE-P37's the same firmware; else the FM-1"""
+    return "smk37" if re.search(r"SMK-?37|MKE-?P37", name or "", re.I) else "fm1"
 BANK_N = 32                     # user slots (dsp/sample.h SMP_NUSER)
 NFENT = 12                      # the factory set's entries (SMP_NFENT)
 NENT = BANK_N + NFENT           # the header's entries (SMP_NENT)

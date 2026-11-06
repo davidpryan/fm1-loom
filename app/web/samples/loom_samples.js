@@ -9,10 +9,31 @@
 export const RATES = [11025, 16000, 22050, 32000];
 export const AUTO = [22050, 16000, 11025];
 export const BLK = 128, BLK_V2 = 64;          // a checkpoint every BLK samples: version 3 banks (0.8); 64 in version 2
-export const REGIONS = [[0xC1000, 0x1B000], [0xE5000, 0x17000], [0x93000, 0x4000]];
-const XDATA = [1, 2], REC_MARK = 0xF06;
-export const BANK_SIZE = REGIONS.reduce((a, r) => a + r[1], 0);
-export const BANK_HDR = 2048, BANK_MAX_DATA = BANK_SIZE - BANK_HDR, BANK_N = 32, BANK_VER = 3;
+// the bank's windows per board (sampleio.BOARDS): the FM-1's 216 KB, the SMK-37's 108 KB in its two extra windows
+// around the sectors the board keeps (app.h, docs/SMK37.md); and the windows where no sector may carry an update
+// record's mark. setBoard picks one (the port's name says which: boardOfName)
+export const BOARDS = {
+  fm1: { regions: [[0xC1000, 0x1B000], [0xE5000, 0x17000], [0x93000, 0x4000]], xdata: [1, 2] },
+  smk37: { regions: [[0xA3000, 0xC000], [0xB0000, 0xB000], [0x9D000, 0x4000]], xdata: [0, 1, 2] },
+};
+export let BOARD = "fm1";
+export let REGIONS = BOARDS.fm1.regions;
+let XDATA = BOARDS.fm1.xdata, STARTS = regionStarts();
+const REC_MARK = 0xF06;
+export let BANK_SIZE = REGIONS.reduce((a, r) => a + r[1], 0);
+export const BANK_HDR = 2048, BANK_N = 32, BANK_VER = 3;
+export let BANK_MAX_DATA = BANK_SIZE - BANK_HDR;
+export function setBoard(name) {
+  if (!BOARDS[name]) throw new Error(`no board ${name}`);
+  BOARD = name;
+  REGIONS = BOARDS[name].regions;
+  XDATA = BOARDS[name].xdata;
+  STARTS = regionStarts();
+  BANK_SIZE = REGIONS.reduce((a, r) => a + r[1], 0);
+  BANK_MAX_DATA = BANK_SIZE - BANK_HDR;
+}
+// the board behind a MIDI port's name: an SMK-37 build's USB product string ends in "SMK-37" (fm1-base tools/build.py)
+export function boardOfName(name) { return /SMK-?37|MKE-?P37/i.test(name || "") ? "smk37" : "fm1"; }
 // since 0.8 the factory set (the kits' drums, the instruments, the sweep, the vinyl) lives in the bank too: 12 entries
 // marked E_FACTORY (an entry's flags, byte 33), which its factory rows play and which are no user slots (sample.h)
 export const NFENT = 12, NENT = BANK_N + NFENT, E_FACTORY = 0x01;
@@ -210,7 +231,6 @@ export function lengthAt(nx, sr, rate) { return Math.trunc(nx * rate / sr); }
 
 // ---- the bank's layout (sampleio.user_bank)
 function regionStarts() { const out = []; let v = 0; for (const [, n] of REGIONS) { out.push(v); v += n; } return out; }
-const STARTS = regionStarts();
 function regionOf(v) {
   for (let r = 0; r < REGIONS.length; r++) if (STARTS[r] <= v && v < STARTS[r] + REGIONS[r][1]) return r;
   return REGIONS.length;
@@ -490,7 +510,7 @@ export async function findLink(midi, wait = 1000) {
     if (!output) continue;
     try { await input.open(); await output.open(); } catch (_) { continue; }   // another app holds it: the next
     const l = new Link(input, output);
-    try { await l.retry(25, [], wait); return l; } catch (_) { l.close(); }
+    try { await l.retry(25, [], wait); setBoard(boardOfName(input.name)); l.board = BOARD; return l; } catch (_) { l.close(); }
   }
   return null;
 }

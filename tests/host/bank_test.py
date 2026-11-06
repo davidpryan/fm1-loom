@@ -192,5 +192,41 @@ check("a version 2 bank, rebuilt: the version 3 bank of the same samples, byte f
       struct.unpack_from("<H", v2, 4)[0] == 2 and v3 == fresh)
 check("a checkpoint every 128 samples: 0.53 bytes a sample, not 0.56", abs(sio.bytes_per_second(1) - 0.53125) < 1e-9)
 
+
+# ---- the SMK-37's bank (sio.set_board): 108 KB in its three windows (dsp/sample.h, app.h), every one an extra window
+# (the mark rule in all three), and the factory set fitting beside a little of the player's own
+sio.set_board("smk37")
+try:
+    check("the SMK-37's windows: 0xA3000 (48 KB), 0xB0000 (44 KB), 0x9D000 (16 KB): 108 KB, the header at 0xA3000",
+          sio.REGIONS == [(0xA3000, 0xC000), (0xB0000, 0xB000), (0x9D000, 0x4000)] and sio.BANK_SIZE == 0x1B000 and
+          sio.flash_of(0) == 0xA3000 and sio.flash_of(sio.region_starts()[1]) == 0xB0000 and
+          sio.flash_of(sio.BANK_SIZE - 1) == 0xA0FFF and sio.XDATA == (0, 1, 2))
+    check("the board behind a port's name: \"LOOM-8 FM-1 SMK-37\" the SMK-37, \"LOOM-8 FM-1\" the FM-1",
+          sio.board_of_name("LOOM-8 FM-1 SMK-37") == "smk37" and sio.board_of_name("MIDIOUT2 (LOOM-8 FM-1)") == "fm1")
+    a = tone(100000, 440, 22050)                    # 52 KB: past the first window's 46 KB of data
+    img = sio.user_bank([("long", a, 69, None, 0, 22050), ("mid", b, 57, None, 0, 16000)])
+    h, es = entries(img)
+    check("a bank made for 108 KB, its long sample's ADPCM running on into the second window",
+          h["size"] == 0x1B000 and es[0]["adp"] + (es[0]["n"] + 1) // 2 > window_end(es[0]["adp"]))
+    adp, _ = sio.ima_encode(a)
+    check("read back across the seam: the bytes as encoded", bytes(img[es[0]["adp"]:es[0]["adp"] + (es[0]["n"] + 1) // 2]) == adp)
+    long = tone(90000, 523, 22050)
+    img = sio.user_bank([("a", long, 60, None), ("b", long, 60, None)])
+    check("no sector of any window carries an update record's mark", not sio._marks(img, len(img)))
+    try:
+        import gen_samples
+        fset = ls.build([], factory=True, quiet=True)
+        check(f"the factory set alone fits the SMK-37's bank ({sio.bank_used(fset)} of {sio.BANK_MAX_DATA} B)", True)
+    except ValueError as e:
+        check(f"the factory set fits the SMK-37's bank: {e}", False)
+    try:
+        sio.user_bank([("big", tone(int(sio.BANK_MAX_DATA / sio.bytes_per_second(11025) * 11025) + 2000, 300, 11025), 60,
+                        None, 0, 11025)])
+        check("a bank larger than the SMK-37's windows is refused", False)
+    except ValueError as e:
+        check("a bank larger than the SMK-37's windows is refused", str(e).startswith("too long"))
+finally:
+    sio.set_board("fm1")
+
 print("bank tool:", "all ok" if not bad else f"{bad} FAILED")
 sys.exit(1 if bad else 0)

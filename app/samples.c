@@ -142,7 +142,7 @@ static int sb_write(uint32_t v, const uint8_t *p, uint32_t n)   /* n bytes at v,
  * update loader erases a sector it takes for a record: base/bsp/loader/ldr_core.c) */
 static int sb_record_mark(uint32_t len)
 {
-    for (int r = 1; r < SMP_NREG; r++)
+    for (int r = SMP_XDATA_FIRST; r < SMP_NREG; r++)
         for (uint32_t s = 0; s < smp_reg_size(r); s += 0x1000u) {
             uint32_t v = smp_reg_v(r) + s + 0xF06u;
             const uint8_t *p = plat_data(smp_reg_off(r) + s + 0xF06u);
