@@ -11,6 +11,10 @@ for a keyboard or synth (through a powered hub). Built on
 from [Felucca](https://github.com/hugelton/Felucca) by Leo Kuroshita (Hügelton Instruments), with X0X's sequencer
 discipline and Polly's menu paradigm.
 
+LOOM-8 also builds for the **M-VAVE SMK-37** keyboard (Pro, Elite, MKE-P37): the same firmware on its 37 velocity keys,
+16 pads, faders and wheels, with its TRS jack as MIDI OUT. See [docs/SMK37.md](docs/SMK37.md) for the build, the flash
+layout and what each control does there. Not yet tried on a unit.
+
 - **Read the manual**: [docs/MANUAL.md](docs/MANUAL.md), with a ten-minute quick start, every page and gesture, and screenshots
 - **Try it in your browser** (no FM-1 needed): <https://charlesvestal.github.io/fm1-loom/emu/>
 - **Install it** (Chrome or Edge, with the FM-1 plugged in): <https://charlesvestal.github.io/fm1-loom/install/>

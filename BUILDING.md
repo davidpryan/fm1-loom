@@ -49,6 +49,7 @@ On Linux x86-64 the toolchain runs natively and Docker is not needed.
 
 ```
 ./build.sh                    # the firmware: app/build/loom.fwsc
+BOARD=smk37 ./build.sh        # the same for the M-VAVE SMK-37: app/build/loom-smk37.fwsc (docs/SMK37.md)
 ./build.sh --host             # the host simulator: app/build/host/loom_host
 ./build.sh --web              # the browser emulator: app/build/emu/ (fm1-base's page; LOOM-8's bits: app/web/emu/)
 ```
