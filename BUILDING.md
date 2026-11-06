@@ -8,6 +8,10 @@ git clone --recursive https://github.com/charlesvestal/fm1-loom
 git submodule update --init --recursive      # (an existing clone)
 ```
 
+Until charlesvestal/fm1-base#38 (the SMK-37 board) is merged, `base` is keremimo's `feat/smk37-board` (a349743; its
+felucca-bsp hugelton's `feat/smk37-board`, 6617ee0): .gitmodules names keremimo's fork, so the submodule commands above
+find it. Both are fm1-base main plus the board layer.
+
 The build (fm1-base's `tools/build.py`, run by `./build.sh`, driven by `app/fm1.toml`) makes three files in
 `app/build/`:
 
