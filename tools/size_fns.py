@@ -64,7 +64,7 @@ COLD = {
                   # once a step, a note or a hit (as fire_notes): the players, the kit's step, the locks, the jumps
                   "arp_fire", "roll_fire", "step_roll_fire", "chord_at", "kit_emit", "kit_group", "kit_lanes",
                   "step_note", "brain_note", "resolve_set", "apply_locks", "next_pos", "jump_set", "rec_step1",
-                  "scene_read"],
+                  "scene_read", "fire_step", "fire_sub", "six_tick", "step_arp_end", "do_stop", "ext_ticks"],
 }
 # the two FX slots' and the master's per-sample code, closed under calls (~18 KB; the 24 KB RAMTEXT region holds
 # .ram_text's ~3 KB and the second core's loop besides)
