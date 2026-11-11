@@ -29,6 +29,10 @@ cache to the synth, the drums and the sequencer (on the FM-1, 2026-10-18: the ma
 so the set is closed (RAM_INLINE: what both sides call is inlined into each) and engine.c calls in through a pointer
 (DSP_FAR); the linker refuses any call that was missed.
 
+The 909 models' and digisophie's sample loops (RAM_TWINS) are there too, for the flash rather than the speed: the image
+stores RAM code LZMA-packed (fm1.toml boot_pack), about half its size, and RAMTEXT had 12 KB left. What they call is
+copied beside them (ram_twins) instead of inlined everywhere, so the code left in the flash does not change.
+
     size_fns.py IN.ll OUT.ll [UNIT]        (XY_SIZE=0: copy unchanged; UNIT: an o2 unit, relative to app/)"""
 import os
 import re
