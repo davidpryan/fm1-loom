@@ -81,7 +81,8 @@ jobs:
           ./build.sh
           # where the image's bytes go (a development build's log): the sections, then the largest symbols
           "$JIELI_TOOLCHAIN/common/bin/objdump" -h app/build/loom.elf
-          "$JIELI_TOOLCHAIN/common/bin/objdump" -t app/build/loom.elf | awk 'NF >= 5 && $(NF-1) ~ /^[0-9a-f]{8}$/ { print $(NF-1), $(NF-2), $NF }' | sort -r | head -600
+          "$JIELI_TOOLCHAIN/common/bin/objdump" -t app/build/loom.elf | awk 'NF >= 5 && $(NF-1) ~ /^[0-9a-f]{8}$/ { print $(NF-1), $(NF-2), $NF }' | sort -r > app/build/loom.sizes
+          awk '$1 >= "00000100"' app/build/loom.sizes
           cp app/build/loom.fwsc build/release-assets/
           cp app/build/loom-res.bin build/release-assets/
           cp app/build/loom.bin build/release-assets/loom-app.bin
