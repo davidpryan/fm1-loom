@@ -81,7 +81,7 @@ RAM_SETS = {"dsp/fx.c": (RAM_DSP, RAM_INLINE), "dsp/synth.c": (["synth_note_on"]
 # them, and the image stores RAM code LZMA-packed (fm1.toml boot_pack), about half its size. Each is entered through
 # a pointer (dsp/drumline.c DL_FAR); what it calls is copied beside it (ram_twins), so the flash's code (a hit's
 # start, the models' set-up) is the same with or without them
-RAM_TWINS = {"dsp/d909.c": ["d909_render"], "dsp/digisophie.c": ["ds_voice_render"]}
+RAM_TWINS = {}
 RAM_UNITS = list(RAM_SETS) + list(RAM_TWINS)
 RAM_SECTION = ".c1_text.dsp"
 ROOTS = re.compile(r"^(?:\w+_irq|fm1_fault_c|fm1_fatal_common|core2_job)$")
