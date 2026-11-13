@@ -187,7 +187,7 @@ press…" means keep **HOME** down while you press the next thing.
 | **REC** | While playing, hold it to record for as long as you hold it. While stopped, tap it to arm step record. Hold it while playing on a sound page to record the knobs you turn. Hold it while stopped (or on Steps) and the knobs become the record settings (click, count-in, quantise, mode). |
 | **SEL** | Opens a list of this page's settings and actions. With a step held, it lists the step's notes. When LOOM-8 asks a question, **SEL** means yes. |
 | **HOME** | Opens Arrange. On Arrange, it opens the Song page. Hold it as a shift key for buttons and knobs: undo and redo, fine tempo, and the scenes on **PRESETS**. When LOOM-8 asks a question, **HOME** means no. |
-| **SEQ** | Opens Steps; page 2 is Bar. Hold it on Steps and the keys play the track and set what a step writes (**PRESETS** sets the track's sound, and **OCT** moves the whole pattern an octave). Hold it on Bar and black keys 1 to 4 jump to a bar or loop bars. Hold it on Steps or Bar and press **PLAY** to start from the bar on screen. |
+| **SEQ** | Opens Steps; page 2 is Bar, page 3 Gen (an instrument's generators). Hold it on Steps and the keys play the track and set what a step writes (**PRESETS** sets the track's sound, and **OCT** moves the whole pattern an octave). Hold it on Bar and black keys 1 to 4 jump to a bar or loop bars. Hold it on Steps or Bar and press **PLAY** to start from the bar on screen. |
 | **EDIT** | Opens Engine. Page 2 is Play and page 3 is Play 2 (the octave). The knit, rayon and acid engines have a page 4, Sub, with the engine's second set of knobs. A sample track in a loop mode has its Loop page second. On a drum track, page 2 holds the key's model, random, pan and volume, and page 3 its sends. On the conductor, the pages are its key, the routing and Follow. |
 | **ENV** | Opens Envelope (on a drum track: lag, attack, random, length), then Filter, then the filter's envelope. |
 | **FX** | Opens Character, the track's own effect. Next come Sends, the track's sends to FX I and FX II, and then FX I and FX II, the two effects. |
@@ -471,6 +471,33 @@ empty pattern so you can edit it like any other. Weaving a pattern with a shifte
 FORWARD, then weave it by steps) makes variations. A drum pattern's rhythm with a melody's notes makes a riff.
 
 <img src="img/screen-weave.png" width="240" alt="ARP's Weave page on T2: T2 weaves with T1, by rhythm: T2 P1's rhythm, T1 P1's pitch; rows for T2 P1's steps, T1 P1's, and what plays; on, it plays woven" title="A weave set up"> <img src="img/screen-woven.png" width="240" alt="The WEAVE track's page: ten boxes, T1 to T8, COND and THROW; T2's lit while its key is held, its weave T1 P1, rhythm" title="Weaving">
+
+### Gen
+
+Turn **SELECT** once more after Bar for Gen, the third SEQ page (an instrument track's: tracks 1 to 8). It writes the
+pattern for you. **KNOB 1** (MAKE), or white keys 1 to 5, picks one of five generators, and **KNOB 2** to **KNOB 4**
+shape it. The pattern is rewritten while you turn them, so you hear it as it changes, playing or stopped.
+
+Each turn starts again from the pattern as it was when you first turned a knob on the page. So turning a knob back
+gets your pattern back, and undo (**HOME** + **REC**) puts it back in one go, whichever generators you tried. Leave
+the page and come back, and Gen starts from the pattern as it is then.
+
+On a kit, Gen writes only the sound shown: the black keys pick it, and the rest of the kit's steps stay as they
+were. (Grids writes the kick, snare and hat, sounds 1 to 3.) On a synth track, the notes are in the conductor's key
+and scale, from the note a step writes (**SEQ** held and a key, as on Steps). Euclid and Grids keep your notes and
+change the rhythm: a hit plays the note that was on that step, or the last one before it.
+
+| Generator | KNOB 2 | KNOB 3 | KNOB 4 | What it does |
+| --- | --- | --- | --- | --- |
+| **euclid** | hits | steps | rotate | Spreads the hits as evenly as they go over a cycle of steps, repeated along the pattern, and turns it round by ROTATE. 3 in 8 is the tresillo, 5 in 8 the cinquillo. The cycle's first hit is accented. |
+| **grids** | X | Y | density | Mutable Instruments Grids' map of 25 drum patterns: X and Y move between them, DENSITY adds hits from the most important down. On a synth track, its kick part is the rhythm. |
+| **turing** | length | change | range (a kit: density) | A Turing Machine: a loop of LENGTH steps whose bits change by the chance CHANGE as it goes round. At 0 it is a fixed loop; a little drifts slowly; 100 % flips every bit. RANGE is how many scale degrees the notes span. |
+| **walk** | density | stride | range (a kit: spread) | A random walk: each note at most STRIDE scale degrees from the last, within RANGE around the root. DENSITY is the chance a step plays. On a kit, the velocity walks instead, SPREAD below full. |
+| **mutate** | amount | kind | spread | Changes AMOUNT of your pattern's steps. KIND: pitch (a note moved up to SPREAD degrees; a kit's hit, its velocity), move (a hit moved up to SPREAD steps), drop/add, or all three. |
+
+**PRESETS** rolls the dice again for turing, walk and mutate: the same knobs then make another pattern. The same
+dice and the same knobs always make the same pattern. The screen shows the pattern's steps, a bar a row, hits in the
+track's colour, accents bright and, on a synth track, a mark at each note's height.
 
 ## Recording
 
@@ -1523,6 +1550,7 @@ On a sound page, hold **SAVE** and press white key 1 to 16 to keep the track's s
 | SEQ, a step held | Steps | velocity | length | chance | pitch | white: length or more steps, black: sounds; PRESETS: the step's sound shown (drums: velocity, chance and tricks are its) |
 | SEQ, a step held + ARP | Steps | trick 1 | its value | trick 2 | its value | PRESETS: the step's sound shown (drums) |
 | SEQ, SELECT | Bar | quant | note | groove | shape | black: scale; SEQ held, black 1-4: jump or loop bars |
+| SEQ, SELECT twice | Gen | make | its three knobs | | | white 1-5: the generator; black: a kit's sound; PRESETS: reroll |
 | EDIT | Engine | the engine's four | | | | play |
 | EDIT, SELECT | Play | mode | porta | bend | volume | play |
 | EDIT, SELECT twice | Play 2 | octave | | | | play |

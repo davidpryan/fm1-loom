@@ -102,10 +102,10 @@ static uint16_t col_mix(uint16_t a, uint16_t b, uint32_t s)   /* a moved s/16 of
  * kit, after its bus filter), its sends and the two effects; ARP three with the arp (its page 2, then hold). EDIT on a synth
  * track: Engine, Play, Play 2 (the octave), then Sub where the engine has a second page of knobs (TP_X1..X4: knit's
  * oscillator 2, level, sub, noise; rayon's fall); a kit or an FX track Engine and Play; the conductor Engine, Play (routing), Sub (Follow) */
-enum { P_ARRANGE, P_SONG, P_STEPS, P_BAR, P_ENGINE, P_PLAY, P_PLAY2, P_SUB, P_ENV, P_FILTER, P_ENV2, P_KITF, P_CHARACTER, P_SENDS,
+enum { P_ARRANGE, P_SONG, P_STEPS, P_BAR, P_GEN, P_ENGINE, P_PLAY, P_PLAY2, P_SUB, P_ENV, P_FILTER, P_ENV2, P_KITF, P_CHARACTER, P_SENDS,
        P_FX1, P_FX2, P_THROWS, P_LFO, P_LFO2, P_PLAYERS, P_PLAYERS2, P_PLAYERS3, P_WEAVE, P_MIX, P_MASTER, P_MASTER2, P_MASTER3, P_GLFO, P_SETUP,
        P_STATUS, NPAGES };
-static const char *const PAGE_NAME[NPAGES] = {"Arrange", "Song", "Steps", "Bar", "Engine", "Play", "Play 2", "Sub", "Envelope",
+static const char *const PAGE_NAME[NPAGES] = {"Arrange", "Song", "Steps", "Bar", "Gen", "Engine", "Play", "Play 2", "Sub", "Envelope",
                                               "Filter", "Filter env", "Kit filter", "Character", "Sends", "FX I",
                                               "FX II", "Throws", "LFO", "LFO 2", "Players", "Players 2", "Hold", "Weave", "Mix",
                                               "Master EQ", "Master color", "Master out", "LFO", "Setup", "Debug"};
@@ -137,7 +137,7 @@ static uint32_t glfo_route(void)                 /* the tracks it moves: bit t *
 }
 static int mst_base(int p) { return p == P_MASTER ? MS_EQ_LO : p == P_MASTER2 ? MS_CTYPE : MS_PERC; }   /* its first knob */
 static const struct { uint8_t btn, first, n; } PAGE_BTN[] = {
-    {B_HOME, P_ARRANGE, 2}, {B_SEQ, P_STEPS, 2}, {B_EDIT, P_ENGINE, 4}, {B_ENV, P_ENV, 4}, {B_FX, P_CHARACTER, 5},
+    {B_HOME, P_ARRANGE, 2}, {B_SEQ, P_STEPS, 3}, {B_EDIT, P_ENGINE, 4}, {B_ENV, P_ENV, 4}, {B_FX, P_CHARACTER, 5},
     {B_LFO, P_LFO, 2}, {B_ARP, P_PLAYERS, 4}, {B_GLO, P_MIX, 7}};
 #define NPAGE_BTN (sizeof PAGE_BTN / sizeof PAGE_BTN[0])
 static int page_group(int p)
@@ -274,6 +274,10 @@ static struct {
     uint8_t scene_from, scene_made;                  /* a scene key's press: the scene playing before it (0xFF none),
                                                       * and whether the press made the scene (a copy) */
     uint32_t sig[6];
+    uint8_t gen_on;                                  /* Gen: rendered since the page opened (the base: undo's copy) */
+    uint8_t gen_type[NTRK];                          /* each instrument's generator (gen.c GEN_*), and its knobs */
+    uint8_t gen_v[NTRK][NGEN][3];
+    uint16_t gen_seed[NTRK];                         /* the random ones' seed (PRESETS: the next) */
 } ui;
 
 /* SEL: the screen as a list: the page's knobs, then its actions */
@@ -700,6 +704,8 @@ static int group_n(int g)
     int trk = sel_trk(), b = PAGE_BTN[g].btn;
     if (b == B_SEQ && trk == AUX_WEAVE)
         return 1;                                    /* (WEAVE's steps: no Bar page) */
+    if (b == B_SEQ)
+        return trk < NTRK ? 3 : 2;                   /* (Gen: an instrument's; the conductor and the throws, none) */
     if (b == B_EDIT)                                 /* (grp_page: the conductor's Sub third; a kit, an FX track: two) */
         return trk == AUX_PUNCH || trk == AUX_WEAVE ? 1 : trk == AUX_BRAIN ? 3 : is_aux(trk) ? 2
              : x_page(trk) ? 4 : 3;      /* (a kit: Engine, Key, Sends: the key's own; Engine 2 after Engine when the
@@ -1676,6 +1682,28 @@ static void page_knobs(knob_t *k)
         kn(&k[2], "GROOVE", tp->groove, 0);
         kn(&k[3], "SHAPE", tp->shape, 100);
         break;
+    case P_GEN:
+        if (trk < NTRK) {
+            int g = ui.gen_type[trk] % NGEN;
+            const uint8_t *v = ui.gen_v[trk][g];
+            kname(&k[0], "MAKE", GEN_NAME, g, NGEN);
+            for (int i = 0; i < 3; i++) {
+                const char *nm = is_drum(trk) && GEN_K[g].kname[i] ? GEN_K[g].kname[i] : GEN_K[g].name[i];
+                if (g == GEN_MUTATE && i == 1)
+                    kname(&k[2], nm, MU_NAME, v[1], NMU);
+                else if (g == GEN_TURING && i == 2 && is_drum(trk)) {
+                    e = num_s((uint32_t)v[2] * 5u, t);
+                    s_cat(e, "%");
+                    kv(&k[3], nm, t, v[2], GEN_K[g].hi[2]);
+                } else if ((g == GEN_TURING && i == 1) || (g == GEN_WALK && i == 0)) {
+                    e = num_s(v[i], t);
+                    s_cat(e, "%");
+                    kv(&k[i + 1], nm, t, v[i], GEN_K[g].hi[i]);
+                } else
+                    kn(&k[i + 1], nm, v[i], GEN_K[g].hi[i]);
+            }
+        }
+        break;
     case P_ENGINE:
         if (is_aux(trk))
             aux_engine_knobs(k, trk);
@@ -2081,18 +2109,18 @@ static void draw_tag(void)
         for (int b = NBAR - 1; b >= 0; b--) {        /* the bars, right to left before the dots */
             uint16_t c = b < nb ? K_DIM : K_LINE, f = b == pb ? K_NOW : c;
             char q[4];
-            r -= 20;
-            cv_round(r, 2, 18, 20, 4, f);
+            r -= 18;                                 /* (SEQ's three dots: 16 wide, 18 apart) */
+            cv_round(r, 2, 16, 20, 4, f);
             if (b == ui.bar)
-                cv_frame(r, 2, 18, 20, 4, K_SEL, f);
+                cv_frame(r, 2, 16, 20, 4, K_SEL, f);
             num_s((uint32_t)b + 1u, q);
-            text_c(r + 9, cap_y(2, 20, &FONT_XS), &FONT_XS, q, b == ui.bar || b == pb ? K_BG : K_TEXT);
+            text_c(r + 8, cap_y(2, 20, &FONT_XS), &FONT_XS, q, b == ui.bar || b == pb ? K_BG : K_TEXT);
         }
         x = 8;
         if (nm[0])
             x = text_fit(x, cap_y(0, TAG_H, &FONT_S), &FONT_S, nm, 80, K_TEXT) + 8;
         if (hd[0])
-            text_fit(x, cap_y(0, TAG_H, &FONT_S), &FONT_S, hd, r - 6 - x, K_DIM);
+            text_fit(x, cap_y(0, TAG_H, &FONT_S), &FONT_S, hd, r - 4 - x, K_DIM);
         cv_blit(0, TAG_Y);
         return;
     }
@@ -2204,6 +2232,10 @@ static void page_footer(char *t)
             s_cat(t, ui.page == P_BAR ? "WHITE steps|BLACK sound|SEQ held: bars" : "WHITE steps|BLACK sound|SEQ held: pick a sound");
         else
             s_cat(t, ui.page == P_BAR ? "WHITE steps|BLACK scale|SEQ held: bars" : "WHITE steps|SEQ held: play notes");
+        break;
+    case P_GEN:
+        s_cat(t, !is_seqt(trk) || trk >= NTRK ? "ALGO track: an instrument's" : is_drum(trk) ? "WHITE 1-5 kind|BLACK sound|PRESETS roll"
+                                                           : "WHITE 1-5 kind|PRESETS roll|KEYS play");
         break;
     case P_MIX:
         s_cat(t, "BLACK mute|hold: solo|WHITE play");
@@ -2533,6 +2565,8 @@ static void draw_footer_as(void)
 static const struct { uint8_t btn; uint32_t pages; const char *title, *l1, *l2; } CARD[] = {
     {B_SEQ, PG(P_BAR), "Bars", "Hold SEQ, black keys 1-4: jump to a bar at the next bar line.",
      "Two held: loop them. One twice: loop it."},
+    {B_SEQ, PG(P_GEN), "Gen", "KNOB 1 or white 1-5: a generator. KNOBS 2-4 shape it.",
+     "PRESETS: reroll. HOME + REC: undo."},
     {B_SEQ, PG_ANY, "Steps", "The bar's 16 steps on the white keys. Hold SEQ and play the notes,",
      "then press steps to write them. Hold several to edit them all."},
     {B_EDIT, PG_STEPS, "Lock", "With a step held, EDIT, ENV, FX or LFO show their knobs.",
@@ -3858,6 +3892,65 @@ static void draw_bar(void)
     cv_text(12, LY(86, MAIN_H - 27), F_CAP, t, K_DIM);
     cv_text(12, LY(100, MAIN_H - 15), F_CAP, is_drum(trk) ? "white keys: the bar's steps, black keys: sounds"
                                             : "black keys: scale 1 2 3 4 5 6 8 16 1/2", K_DIM);
+    cv_blit(0, MAIN_Y);
+}
+
+/* SEQ's Gen: what the generator makes and from what, the pattern's 64 steps in four rows of a bar (a kit: the sound
+ * shown), the playhead, and what the keys do */
+static void draw_gen(void)
+{
+    int trk = sel_trk(), g = trk < NTRK ? ui.gen_type[trk] % NGEN : 0, drum = is_drum(trk), ph = trk < NTRK ? eng_step[trk] : 0;
+    const tpat_t *tp = tpat(trk);
+    uint32_t h = hash_u(hash_u(2166136261u, 0x6Eu), (uint32_t)trk | (uint32_t)cur_pat(trk) << 4 | (uint32_t)g << 8 |
+                                          (uint32_t)ui.dsound << 12 | (uint32_t)ph << 16 | (uint32_t)playing() << 24);
+    char t[48], *e;
+    h = hash_u(h, (uint32_t)seq.brain_key | (uint32_t)seq.brain_scale << 4 | (uint32_t)ui.rem[0] << 8);
+    h = hash_pat(h, tp);
+    if (!begin_main(h))
+        return;
+    if (trk >= NTRK) {
+        text_c(120, LY(40, 30), &FONT_S, "Gen writes an instrument's steps", K_DIM);
+        cv_blit(0, MAIN_Y);
+        return;
+    }
+    {
+        static const char *const CAP[NGEN] = {"Euclid", "Grids", "Turing", "Walk", "Mutate"};
+        e = s_cat(t, CAP[g]);
+        if (drum)
+            e = s_cat(s_cat(e, " on "), g == GEN_GRIDS ? "kick, snare, hat" : DL_SOUND_NAME[ui.dsound % DL_NSOUND]);
+        else if (g == GEN_EUCLID || g == GEN_GRIDS)
+            e = s_cat(e, ": your notes");
+        else if (g == GEN_MUTATE)
+            e = s_cat(e, ": your pattern");
+        else {
+            e = s_cat(s_cat(e, " in "), NOTE_NAME[seq.brain_key % 12u]);
+            e = s_cat(s_cat(e, " "), BS_NAME[seq.brain_scale % NBS]);
+            e = note_name(scale_snap(ui.rem[0] ? ui.rem[0] : 60, seq.brain_key, seq.brain_scale), s_cat(e, " from "));
+        }
+        text_fit(12, LY(6, 2), LY(&FONT_S, &FONT_XS), t, 216, K_TEXT);
+    }
+    int rows = (tp->len + 15) / 16, y0 = LY(28, 20), pitch = (LY(80, MAIN_H - 30) - y0) / (rows < 1 ? 1 : rows);
+    int32_t ch = pitch - 3 > 22 ? 22 : pitch - 3;
+    for (int i = 0; i < rows * 16 && i < NSTEP; i++) {   /* (a bar a row, as tall as the pattern's bars leave room for) */
+        int32_t x = 12 + (i % 16) * 14, y = y0 + (i / 16) * pitch;
+        const step_t *st = &tp->st[i];
+        int in = i < tp->len, on = in && (drum ? kit_has(st, ui.dsound % DL_NSOUND + 1) : st->note[0] != 0);
+        uint16_t c = !in ? K_BG : on ? (st->vel >= 115 ? K_TEXT : K_NOW) : playing() && i == ph ? K_NOW_T : K_PANEL;
+        if (!in) {
+            cv_rect(x + 5, y + ch / 2, 2, 1, K_LINE);
+            continue;
+        }
+        cv_round(x, y, 12, ch, 3, c);
+        if (on && !drum && st->note[0]) {            /* a note: a mark at its height in the cell */
+            int my = y + ch - 2 - (st->note[0] % 12) * (ch - 3) / 11;
+            cv_rect(x + 3, my, 6, 1, K_BG);
+        }
+        if (playing() && i == ph && on)              /* the playhead on a hit: outlined */
+            cv_frame(x - 1, y - 1, 14, ch + 2, 4, K_TEXT, c);
+    }
+    cv_text(12, LY(86, MAIN_H - 27), F_CAP, "white keys 1-5: euclid grids turing walk mutate", K_DIM);
+    cv_text(12, LY(100, MAIN_H - 15), F_CAP, drum ? "black keys: the sound, PRESETS: reroll" : "PRESETS: reroll, HOME + REC: undo",
+            K_DIM);
     cv_blit(0, MAIN_Y);
 }
 
@@ -5965,9 +6058,12 @@ static void draw_weave_play(void)
             K_DIM);
     cv_blit(0, MAIN_Y);
 }
+static void draw_gen(void);
 static void draw_page(void)
 {
     int trk = sel_trk();
+    if (ui.page != P_GEN)
+        ui.gen_on = 0;                               /* (Gen's next turn starts from the pattern as it is then) */
     if (ui.card) {
         draw_card();
         return;
@@ -5989,6 +6085,7 @@ static void draw_page(void)
             draw_steps();
         break;
     case P_BAR: draw_bar(); break;
+    case P_GEN: draw_gen(); break;
     case P_CHARACTER: draw_character(); break;
     case P_SENDS: draw_sends(); break;
     case P_FX1: draw_fxtrack(AUX_FX1); break;

@@ -2,7 +2,7 @@
 
 LOOM-8 is free software, file by file: each file says its licence in its first lines (`SPDX-License-Identifier`).
 Most are under the Mozilla Public License, version 2.0 (`MPL-2.0`, full text in `LICENSE`); the acid engine
-(`app/dsp/bass303.c`, `bass303.h`) and the 909 kit models (`app/dsp/d909.c`, `d909.h`) are under the GNU General
+(`app/dsp/bass303.c`, `bass303.h`) and the 909 kit models (`app/dsp/d909.c`, `d909.h`) and the Gen page's generators (`app/gen.c`, with Grids' map `app/seq/grids_map.h`) are under the GNU General
 Public License, version 3 only (`GPL-3.0-only`, full text in `COPYING`). The firmware and the browser emulator are built with it, so each, as a whole, is under **GPL-3.0-only**
 (the MPL-2.0 files may be combined with GPL-3.0 code: MPL-2.0 section 3.3, none of them is marked "Incompatible With
 Secondary Licenses"), and its whole source must be available under it when you distribute it. Each MPL-2.0 file stays
@@ -49,6 +49,7 @@ endorsed by or derived from teenage engineering; the name is only used descripti
 | The idea of building the code that never runs per sample for size (`tools/size_fns.py`) | Melodee's (`tools/size_fns.py` there); no code from it | credit only |
 | What the second core and the tests' timing learned on the device | Melodee's dual-core audio (keremimo) and Jangada (zednaked); no code from them in LOOM-8 (fm1-base's second core is keremimo's, by his agreement: felucca-bsp#5) | credit only |
 | knit's unison in `app/dsp/synth.c` (the detune offsets and curve, the pans, the keytracked high-pass) | after [NuSaw](https://github.com/charlesvestal/nusaw-plugin) (the plugin's `dsp/nusaw_engine.cpp`, through its FM-1 port fm1-nusaw), Copyright (c) 2026 Charles Vestal | MIT (below) |
+| `app/seq/grids_map.h` (the Gen page's grids: its 25 drum patterns and their map), used by `app/gen.c` | [Mutable Instruments Grids](https://github.com/pichenettes/eurorack/tree/master/grids) (`resources.cc`, `pattern_generator.cc`), Copyright 2011 Emilie Gillet, extracted unchanged | GPL-3.0-or-later (`COPYING`), taken as GPL-3.0-only with the rest |
 | `app/dsp/braids.h` (the engines cane and voile: their models) | ported from [Mutable Instruments Braids](https://github.com/pichenettes/eurorack/tree/master/braids) (`digital_oscillator.cc`, `macro_oscillator.cc`, the tables of `resources/`), Copyright 2012 Emilie Gillet | MIT (below) |
 | `app/dsp/psxrev.h` (the reverb's PlayStation modes) | ported from [schwung-psxverb](https://github.com/charlesvestal/move-everything-psxverb), Copyright (c) 2025 Charles Vestal; the register sets and the resampling filter are psx-spx's documentation of the PlayStation's SPU | MIT (below) |
 | The x models in `app/dsp/drumline.c` (x kick, x snare, x hat, x clap, x tom, x rim, x fm, x noise: `x_start`, `x_render`) | ported from [MACHINEDRUM](https://github.com/Omodaka9375/machinedrum) (`src/drums.js`, `src/audio.js`), Copyright (c) 2026 Branislav Đalić | MIT (below) |
