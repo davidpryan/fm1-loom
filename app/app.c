@@ -8,6 +8,7 @@
 #include "gfx_loom.c"
 #include "engine.c"
 #include "project.c"
+#include "gen.c"                                    /* the Gen page's generators (pure: tests/host/gen_test.c) */
 #include "pages.c"
 #include "ui.c"
 #include "midicc.c"

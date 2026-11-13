@@ -42,6 +42,10 @@
 
 #define SR SY_SR
 #define CR SY_CHUNK                   /* pan / volume / sends re-read this often */
+/* the 909 models' and digisophie's sample loops run from RAM (tools/size_fns.py RAM_TWINS): out of a direct call's
+ * reach from the XIP window, so they are called through a pointer the compiler cannot fold (as engine.c DSP_FAR) */
+static inline void *dl_far(void *p) { void *volatile q = p; return q; }
+#define DL_FAR(fn) ((__typeof__(&fn))dl_far((void *)&fn))
 #define SUB 32                        /* a voice renders this many at once into a 128 B stack buffer */
 #define RESO_LEN 512                  /* a string's delay line, int16: 86 Hz at the longest */
 #define NRESO 2                       /* strings: string sounds past two steal the older's line */
@@ -1435,7 +1439,7 @@ static void clang_render(dvoice_t *v, float *t, int m, float *envp)
     int32_t buf[SUB];
     int i;
     float env = *envp, k = v->k, g = v->g * (1.0f / 2147483648.0f);
-    ds_voice_render(&v->ds, &v->dp, v->dtrig, buf, (uint32_t)m);
+    DL_FAR(ds_voice_render)(&v->ds, &v->dp, v->dtrig, buf, (uint32_t)m);
     v->dtrig = 0;
     ds_fold_block(buf, (uint32_t)m, v->dfold);
     for (i = 0; i < m; i++) {
@@ -1731,7 +1735,7 @@ static void render_voice(dvoice_t *v, int16_t *line, smp_cache_t *sc, d909_t *ni
     }
     case DM_909KICK: case DM_909SNARE: case DM_909TOM: case DM_909RIM: case DM_909CLAP:
     case DM_909CH: case DM_909OH: case DM_909RIDE: case DM_909CRASH:
-        if (!nine || !d909_render(nine, t, m))       /* (its slot taken, or the hit done: the voice ends) */
+        if (!nine || !DL_FAR(d909_render)(nine, t, m))       /* (its slot taken, or the hit done: the voice ends) */
             env = 0.0f;
         for (i = 0; i < m; i++) {                     /* the velocity, and the choke's fade */
             t[i] *= g * env;

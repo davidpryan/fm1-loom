@@ -29,6 +29,10 @@ cache to the synth, the drums and the sequencer (on the FM-1, 2026-10-18: the ma
 so the set is closed (RAM_INLINE: what both sides call is inlined into each) and engine.c calls in through a pointer
 (DSP_FAR); the linker refuses any call that was missed.
 
+The 909 models' and digisophie's sample loops (RAM_TWINS) are there too, for the flash rather than the speed: the image
+stores RAM code LZMA-packed (fm1.toml boot_pack), about half its size, and RAMTEXT had 12 KB left. What they call is
+copied beside them (ram_twins) instead of inlined everywhere, so the code left in the flash does not change.
+
     size_fns.py IN.ll OUT.ll [UNIT]        (XY_SIZE=0: copy unchanged; UNIT: an o2 unit, relative to app/)"""
 import os
 import re
@@ -44,21 +48,27 @@ SIZE_FILES = ["app/ui.c", "app/pages.c", "app/project.c", "app/lz.c", "app/sampl
 COLD = {
     "dsp/drumline.c": ["start", "knob", "drumline_filter", "drumline_hit", "reso_set", "drumline_init"],
     "dsp/fx.c": ["fx_derive", "eq_coefs", "fx_filter", "master_set", "master_init", "comp_coefs",
-                 "fx_set", "fx_init"],
+                 "fx_set", "fx_init", "color_coefs", "biq_shelf", "fx_clear"],
     "dsp/sample.c": ["smp_user_scan", "fact_init"],
     "dsp/digisophie.c": ["ds_voice_init", "ds_voice_gate"],
     "dsp/d909.c": ["d909_start", "d9_biquad_set", "d9_shape_prep", "d9_env_exp"],
-    "dsp/bass303.c": ["bass303_init", "rat_coeffs", "bq_low_shelf", "bq_lowpass"],
+    "dsp/bass303.c": ["bass303_init", "rat_coeffs", "bq_low_shelf", "bq_lowpass", "bass303_set", "square_set",
+                      "bass303_note_on"],
     "dsp/bench.c": [],
     "dsp/synth.c": ["tp_text_i", "tp_text_par", "tp_info_par", "tp_text", "char_picture",
                     "synth_note_off", "synth_duck_trigger", "synth_all_off",
-                    "sound_default", "synth_init", "eknob_init", "voice_chunk", "voice_subblock", "synth_prepare"],
+                    "sound_default", "synth_init", "eknob_init", "voice_chunk", "voice_subblock", "synth_prepare",
+                    "char_coefs", "synth_cut", "tp_info", "dknob_of"],
     "seq/pattern.c": ["pattern_init", "patterns_init", "lane_alloc", "lane_clear", "lane_count", "lane_pool_set",
                       "lane_pool_free", "step_clear_locks", "pattern_clear_locks", "step_set_notes", "step_toggle_note",
                       "kit_set", "kit_toggle", "kit_add", "cond_ab", "notes_cross", "weave_step", "pattern_woven"],
     "seq/seq.c": ["fire_notes", "key_in", "seq_init", "bar_end", "do_start", "emit_drum", "rec_key_off",
                   "rec_key_on", "restart", "track_reset", "seq_rec_pos", "deg_to_note", "seq_cue_pattern",
-                  "arp_stop", "keys_all_off"],
+                  "arp_stop", "keys_all_off",
+                  # once a step, a note or a hit (as fire_notes): the players, the kit's step, the locks, the jumps
+                  "arp_fire", "roll_fire", "step_roll_fire", "chord_at", "kit_emit", "kit_group", "kit_lanes",
+                  "step_note", "brain_note", "resolve_set", "apply_locks", "next_pos", "jump_set", "rec_step1",
+                  "scene_read", "fire_step", "fire_sub", "six_tick", "step_arp_end", "do_stop", "ext_ticks"],
 }
 # the two FX slots' and the master's per-sample code, closed under calls (~18 KB; the 24 KB RAMTEXT region holds
 # .ram_text's ~3 KB and the second core's loop besides)
@@ -71,7 +81,12 @@ RAM_INLINE = ["fx_states", "zero16"]
 # it does (on the FM-1, 2026-10-19: the blocks where notes start took twice the others). RAMTEXT is 32 KB for them
 # (and some of the kit's voices, until 2026-10-23)
 RAM_SETS = {"dsp/fx.c": (RAM_DSP, RAM_INLINE), "dsp/synth.c": (["synth_note_on"], [])}
-RAM_UNITS = list(RAM_SETS)
+# and the 909 models' and digisophie's sample loops, for the flash: what RAMTEXT has left (12 KB of its 32) holds
+# them, and the image stores RAM code LZMA-packed (fm1.toml boot_pack), about half its size. Each is entered through
+# a pointer (dsp/drumline.c DL_FAR); what it calls is copied beside it (ram_twins), so the flash's code (a hit's
+# start, the models' set-up) is the same with or without them
+RAM_TWINS = {"dsp/d909.c": ["d909_render"], "dsp/digisophie.c": ["ds_voice_render"]}
+RAM_UNITS = list(RAM_SETS) + list(RAM_TWINS)
 RAM_SECTION = ".c1_text.dsp"
 ROOTS = re.compile(r"^(?:\w+_irq|fm1_fault_c|fm1_fatal_common|core2_job)$")
 DEF = re.compile(r"^(?:static\s+|inline\s+|const\s+|unsigned\s+|signed\s+|struct\s+\w+\s+|__attribute__\s*\(\(.*?\)\)\s*)*"
@@ -168,6 +183,41 @@ def ram_place(ir, names, inl, groups, made):
     return ir
 
 
+def ram_twins(ir, names):
+    """the named definitions into the RAM section, and a copy there (NAME.ram, internal) of every function of this
+    unit they reach, their calls turned to the copies: the placed code calls only itself, and the originals stay as
+    they were for the flash's callers (dropped by the compiler when nothing else calls them)"""
+    funcs = ir_bodies(ir)[0]
+    missing = [n for n in names if n not in funcs]
+    if missing:
+        raise SystemExit(f"size_fns: no {missing} to place in RAM")
+    twins, todo = [], list(names)
+    while todo:
+        for c in re.findall(r"@\"?([\w.]+)", funcs[todo.pop()][1]):
+            if c in funcs and c not in names and c not in twins and not c.startswith("llvm."):
+                twins.append(c)
+                todo.append(c)
+    ref = re.compile(r"@\"?(" + "|".join(map(re.escape, twins)) + r")\"?(?![\w.])") if twins else None
+
+    def body(n):
+        return ref.sub(lambda m: "@" + m.group(1) + ".ram", funcs[n][1]) if ref else funcs[n][1]
+
+    def placed(head):
+        return head if " section " in head else head[:-1].rstrip() + ' section "' + RAM_SECTION + '" {'
+    for n in names:                               # (in place: the same name, now in RAM)
+        head = funcs[n][0]
+        ir = ir.replace(head + "\n" + funcs[n][1] + "}", placed(head) + "\n" + body(n) + "}", 1)
+    for n in twins:
+        head = funcs[n][0]
+        at = head.index("@")
+        new = re.sub(r"^define (?:(?:dso_local|hidden|internal|private) )*", "define internal ", head[:at]) + \
+            re.sub(r"^@\"?" + re.escape(n) + r"\"?\(", "@" + n + ".ram(", head[at:], count=1)
+        if new == head or "@" + n + ".ram(" not in new:
+            raise SystemExit(f"size_fns: cannot copy {n} for RAM")
+        ir += "\n" + placed(new) + "\n" + body(n) + "}\n"
+    return ir, twins
+
+
 def main(src, dst, unit=None):
     ir = Path(src).read_text()
     if os.environ.get("XY_SIZE") == "0":
@@ -202,6 +252,9 @@ def main(src, dst, unit=None):
     ir = re.sub(r"^define [^\n]* #(\d+) [^\n]*\{$", mark, ir, flags=re.M)
     if unit in RAM_SETS:
         ir = ram_place(ir, RAM_SETS[unit][0], RAM_SETS[unit][1], groups, made)
+    twins = None
+    if unit in RAM_TWINS:
+        ir, twins = ram_twins(ir, RAM_TWINS[unit])
     for g, new in made.items():
         a = groups[g] if "optsize" in groups[g].split() else "optsize " + groups[g]
         if unit and "noinline" not in a.split():
@@ -209,7 +262,8 @@ def main(src, dst, unit=None):
         ir += f"\nattributes #{new} = {{ minsize {a} }}\n"
     Path(dst).write_text(ir)
     if unit:
-        print(f"size: {unit}: {len(pick)} functions built for size")
+        print(f"size: {unit}: {len(pick)} functions built for size" +
+              (f"; {len(RAM_TWINS[unit])} in RAM with {len(twins)} copied beside" if twins is not None else ""))
     else:
         print(f"size: {len(pick)} main-loop functions built for size; {len(names & set(funcs) & hot)} in those "
               f"files reachable from an interrupt keep -Os")

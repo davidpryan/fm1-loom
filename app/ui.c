@@ -157,6 +157,7 @@ static void apply_aux(int trk)
         apply_fx(trk);
 }
 static void undo_keep(void);
+static void gen_pick(int trk, int g);
 static void undo_sound(int trk);
 static void undo_sounds(int first, int n);
 static void undo_master(void);
@@ -1496,6 +1497,20 @@ static void key_down(int k)
         }
         return;
     }
+    if (p == P_GEN && trk < NTRK && !ui.rec_armed && !seq.rec && !seq.rec_wait && !(ui.btn >> B_SEQ & 1u)) {
+        if (w >= 0 && w < NGEN) {                /* Gen: white keys 1-5 the generator */
+            ui.kmode[k] = KM_IDLE;
+            gen_pick(trk, w);
+            return;
+        }
+        if (b >= 0 && b < NDRUM && is_drum(trk)) {   /* a kit: black keys the sound it writes */
+            ui.kmode[k] = KM_IDLE;
+            ui.dsound = (uint8_t)b;
+            ui.gen_on = 0;                       /* (another sound: its own base) */
+            say("SOUND", DL_SOUND_NAME[b]);
+            return;
+        }
+    }
     if (p == P_BAR && b >= 0 && b < NBAR && is_seqt(trk) && (ui.btn >> B_SEQ & 1u) && !ui.held && !ui.rec_armed &&
         !seq.rec && !seq.rec_wait) {             /* Bar, SEQ held: black keys 1-4 jump to a bar, or loop it (bar_key) */
         bar_key(k, b);
@@ -2140,6 +2155,75 @@ static void bar_knob(int k, int32_t e)
         tp->shape = (uint8_t)clampi(tp->shape + e, 0, 100);
     mark_dirty();
 }
+/* ------------------------------------------------------------- Gen --- */
+/* SEQ's Gen: the pattern written again from its base each time a knob turns. The base is undo's copy (taken at the
+ * first turn since the page opened, ui.gen_on): turning back gets the pattern back, and undo puts it as it was */
+static void gen_defaults(int t)
+{
+    for (int g = 0; g < NGEN; g++)
+        for (int i = 0; i < 3; i++)
+            ui.gen_v[t][g][i] = GEN_K[g].def[i];
+    ui.gen_type[t] = GEN_EUCLID;
+    ui.gen_seed[t] = (uint16_t)(t + 1);
+}
+static void gen_apply(void)
+{
+    int trk = sel_trk(), pt = cur_pat(trk);
+    gen_ctx_t c;
+    if (trk >= NTRK)
+        return;
+    if (!ui.gen_on || !undo.valid || undo.redo || undo.kind != U_PAT || undo.trk != trk || undo.pt != pt) {
+        undo_pat(trk, pt, 0);                        /* (a stage of its own: the pattern as it is now, the base) */
+        ui.gen_on = 1;
+    }
+    c.kit = is_drum(trk);
+    c.sound = ui.dsound % DL_NSOUND + 1;
+    c.root = ui.nrem ? ui.rem[0] : 60;
+    c.key = seq.brain_key % 12u;
+    c.scale = seq.brain_scale % NBS;
+    c.seed = ui.gen_seed[trk];
+    gen_render(&pats.pat[trk][pt], &undo.u.p.pat, ui.gen_type[trk] % NGEN, ui.gen_v[trk][ui.gen_type[trk] % NGEN], &c);
+    mark_dirty();
+}
+static void gen_pick(int trk, int g)             /* white keys 1-5 (KNOB 1): the generator, written at once */
+{
+    if (trk >= NTRK || g < 0 || g >= NGEN)
+        return;
+    ui.gen_type[trk] = (uint8_t)g;
+    say("MAKE", GEN_NAME[g]);
+    gen_apply();
+}
+static void gen_knob(int k, int32_t e)
+{
+    int trk = sel_trk(), g;
+    if (trk >= NTRK)
+        return;
+    g = ui.gen_type[trk] % NGEN;
+    if (k == 0) {
+        gen_pick(trk, clampi(g + (e > 0 ? 1 : -1), 0, NGEN - 1));
+        return;
+    }
+    {
+        uint8_t *v = &ui.gen_v[trk][g][k - 1];
+        int d = GEN_K[g].hi[k - 1] > 20 ? (int)e : (e > 0 ? 1 : -1);   /* (the short ranges a click at a time) */
+        int n = clampi(*v + d, GEN_K[g].lo[k - 1], GEN_K[g].hi[k - 1]);
+        if (n == *v && ui.gen_on)
+            return;
+        *v = (uint8_t)n;
+    }
+    gen_apply();
+}
+static void gen_roll(int d)                      /* PRESETS: the next seed (the random ones anew) */
+{
+    int trk = sel_trk();
+    char t[8];
+    if (trk >= NTRK)
+        return;
+    ui.gen_seed[trk] = (uint16_t)(ui.gen_seed[trk] + d);
+    num_s(ui.gen_seed[trk], t);
+    say("ROLL", t);
+    gen_apply();
+}
 static void glfo_knob(int k, int32_t e)          /* the shared LFO's knobs (synth.h: the conductor's LFO slots) */
 {
     static const uint8_t P[4] = {TP_LTYPE, TP_LSPEED, TP_LAMT, TP_LDEST};
@@ -2285,6 +2369,7 @@ static void knob_do(int k, int32_t e)
     case P_SONG: song_knob(k, e); return;
     case P_STEPS: steps_knob(k, e); return;
     case P_BAR: bar_knob(k, e); return;
+    case P_GEN: gen_knob(k, e); return;
     case P_MASTER: case P_MASTER2: case P_MASTER3: master_knob(k, e); return;
     case P_SETUP: setup_knob(k, e); return;
     case P_STATUS: debug_knob(k, e); return;
@@ -2396,6 +2481,9 @@ static void presets(int32_t e)
         }
         break;
     case P_THROWS: case P_WEAVE:
+        break;
+    case P_GEN:
+        gen_roll(d);
         break;
     default:
         if (is_fx(trk))
@@ -4700,6 +4788,8 @@ void ui_init(void)
     cards_audit();
 #endif
     ui.page = P_STEPS;
+    for (int t = 0; t < NTRK; t++)
+        gen_defaults(t);
     ui.rem[0] = 60;
     ui.nrem = 1;
     ui.wv_step = 0xFF;

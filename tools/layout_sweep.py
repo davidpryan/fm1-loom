@@ -35,11 +35,17 @@ for p in range(5):
 for f in range(6):
     L.append(f"knob 2 ftype {f}")
     visit(["ENV"], 3)
+L += ["tap SEQ", "turn SELECT 2", "wait 40"]         # SEQ's Gen: each generator on a synth (a kit's: below)
+for g in range(5):
+    L += [f"tapkey w{g}", "wait 40", "turn K2 3", "wait 40"]
 L += ["tap FX", "turn SELECT 2"]                     # FX I's effects, then FX II's
 L += ["turn PRESET 1", "wait 60"] * 16
 L += ["turn SELECT 1"]
 L += ["turn PRESET 1", "wait 60"] * 16
 L += ["spin ALGO -1", "expect trk 1"]                # every track and aux track, every button's pages
+L += ["tap SEQ", "turn SELECT 2", "wait 40"]         # (T1, a kit: Gen's generators on its kick)
+for g in range(5):
+    L += [f"tapkey w{g}", "wait 40", "turn K4 3", "wait 40"]
 for _ in range(14):
     visit(["EDIT", "ENV", "FX", "LFO", "ARP", "GLO", "HOME", "SEQ"])
     L.append("spin ALGO 1")

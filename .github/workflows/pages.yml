@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: MPL-2.0
+# The site (landing page, browser emulator, web installer, backup, manual) for a published release, pushed to the
+# gh-pages branch: BUILDING.md's step 3 (tools/publish_pages.sh), run on GitHub, where Emscripten can be installed.
+# Actions, "Publish the site", Run workflow, with the release's version (0.14-gen for v0.14-gen).
+name: Publish the site
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "The release's version (its tag without the v)"
+        required: true
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: loom-pages
+  cancel-in-progress: false
+
+jobs:
+  pages:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}
+          submodules: recursive
+      - name: Python with Pillow and raqm (the fonts), Emscripten (the browser emulator)
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq libfribidi0 libraqm0
+          python3 -m pip install --quiet --break-system-packages pillow
+          python3 -c "from PIL import features; assert features.check('raqm'), 'Pillow without raqm'"
+          git clone -q https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          git -C "$RUNNER_TEMP/emsdk" checkout -q a2b92777574c2feda07994cd4f1079a3dfc151f8   # emsdk 6.0.10, as release.yml
+          "$RUNNER_TEMP/emsdk/emsdk" install 6.0.10
+          "$RUNNER_TEMP/emsdk/emsdk" activate 6.0.10
+      - name: The release's package and resource region
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p app/build
+          gh release download "v${{ inputs.version }}" --repo "$GITHUB_REPOSITORY" --dir app/build \
+            --pattern '*.fwsc' --pattern '*-res.bin'
+          ls -l app/build
+      - name: Build the site and push it to gh-pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOOM_REPO: https://github.com/${{ github.repository }}
+        run: |
+          set -euo pipefail
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}"
+          sh tools/publish_pages.sh "${{ inputs.version }}"
